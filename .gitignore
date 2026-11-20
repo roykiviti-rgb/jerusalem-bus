@@ -1,0 +1,10 @@
+# נתונים שנבנים מקומית (python build_data.py --download)
+data/
+*.db
+*.db.tmp
+__pycache__/
+*.pyc
+.claude/settings.local.json
+
+# הגדרות אישיות (כתובת הבית) - נשארות רק במחשב
+config.local.json

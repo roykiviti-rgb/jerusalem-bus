@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>אוטובוס ירושלים</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚌</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="panel">
+      <header class="top">
+        <div class="brand"><span class="logo">🚌</span><div><h1>אוטובוס ירושלים</h1><small id="feed"></small></div></div>
+      </header>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="plan">תכנון נסיעה</button>
+        <button class="tab" data-tab="near">תחנות קרובות</button>
+        <button class="tab" data-tab="lines">קווים</button>
+      </nav>
+
+      <section id="tab-plan" class="tabpane active">
+        <div class="form">
+          <div class="fields">
+            <div class="field">
+              <span class="dot from"></span>
+              <input id="from" autocomplete="off" placeholder="מאיפה?">
+              <div class="sugg" id="from-sugg"></div>
+            </div>
+            <div class="field">
+              <span class="dot to"></span>
+              <input id="to" autocomplete="off" placeholder="לאן נוסעים?">
+              <div class="sugg" id="to-sugg"></div>
+            </div>
+          </div>
+          <button id="swap" class="icon-btn" title="החלפה">⇅</button>
+        </div>
+        <div class="when">
+          <select id="when-mode">
+            <option value="now">יציאה עכשיו</option>
+            <option value="at">יציאה ב...</option>
+          </select>
+          <input id="when-time" type="datetime-local" hidden>
+          <button id="go" class="primary">חיפוש מסלול</button>
+        </div>
+        <div class="quick" id="quick"></div>
+        <div id="notice" class="notice" hidden></div>
+        <div id="results"></div>
+      </section>
+
+      <section id="tab-near" class="tabpane">
+        <div class="near-head">
+          <span>תחנות ליד:</span>
+          <div class="seg" id="near-where">
+            <button data-w="home" class="on">🏠 הבית</button>
+            <button data-w="gps">📍 המיקום שלי</button>
+            <button data-w="map">🗺️ מרכז המפה</button>
+          </div>
+        </div>
+        <div id="near-notice" class="notice" hidden></div>
+        <div id="near-list"></div>
+      </section>
+
+      <section id="tab-lines" class="tabpane">
+        <div class="line-search">
+          <input id="line-q" inputmode="numeric" placeholder="מספר קו, למשל 18">
+          <button id="line-go" class="primary">חיפוש</button>
+        </div>
+        <div id="line-results"></div>
+      </section>
+    </aside>
+    <main id="map"></main>
+    <div id="map-hint" hidden>לחצו על המפה כדי לבחור נקודה</div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
