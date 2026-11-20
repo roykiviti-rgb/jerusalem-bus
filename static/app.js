@@ -28,14 +28,18 @@ const store = {
 const fmtT = new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
 const fmtD = new Intl.DateTimeFormat("he-IL", { weekday: "short", day: "numeric", month: "numeric", timeZone: TZ });
 const hhmm = (ms) => fmtT.format(ms);
+// מצב תצוגה: ?time=2026-11-22T08:00 מציג את לוח הזמנים כאילו עכשיו השעה הזו (שימושי בשבת)
+const DEMO_TIME = new URLSearchParams(location.search).get("time");
+const DEMO_MS = DEMO_TIME ? new Date(DEMO_TIME).getTime() : NaN;
+function nowMs() { return Number.isFinite(DEMO_MS) ? DEMO_MS : Date.now(); }
 function sameDay(a, b) { return fmtD.format(a) === fmtD.format(b); }
 const fmtW = new Intl.DateTimeFormat("he-IL", { weekday: "long", timeZone: TZ });
 function timeLabel(ms) {
-  if (sameDay(ms, Date.now())) return hhmm(ms);
-  const days = (ms - Date.now()) / 864e5;
+  if (sameDay(ms, nowMs())) return hhmm(ms);
+  const days = (ms - nowMs()) / 864e5;
   return days < 6 && days > -1 ? `${fmtW.format(ms)} ${hhmm(ms)}` : `${fmtD.format(ms)} ${hhmm(ms)}`;
 }
-function minsUntil(ms) { return Math.round((ms - Date.now()) / 60000); }
+function minsUntil(ms) { return Math.round((ms - nowMs()) / 60000); }
 function untilLabel(ms) {
   const m = minsUntil(ms);
   if (m <= 0) return "עכשיו";
@@ -43,7 +47,8 @@ function untilLabel(ms) {
   return timeLabel(ms);
 }
 async function api(path, params = {}) {
-  const u = new URL(path, location.href);
+  const u = new URL(path, location.origin);
+  if (Number.isFinite(DEMO_MS) && params.time === undefined && !/live|geocode|meta/.test(path)) params = { ...params, time: DEMO_TIME };
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null && v !== "") u.searchParams.set(k, v);
   const r = await fetch(u);
   const j = await r.json();
@@ -234,7 +239,7 @@ $("#when-mode").addEventListener("change", (e) => {
   const at = e.target.value === "at";
   $("#when-time").hidden = !at;
   if (at && !$("#when-time").value) {
-    const d = new Date(Date.now() + 15 * 60000);
+    const d = new Date(nowMs() + 15 * 60000);
     const p = (n) => String(n).padStart(2, "0");
     $("#when-time").value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   }
@@ -402,7 +407,7 @@ function startLive(j, i) {
         const v = r.vehicles.find((x) => x.trip === l.route.trip);
         if (!el) continue;
         if (v) el.innerHTML = liveText(v, "האוטובוס שלך");
-        else if (l.dep - Date.now() < 90 * 60000 && l.dep > Date.now() - 60 * 60000) el.innerHTML = `<span class="sub">אין עדיין מיקום חי לנסיעה הזו</span>`;
+        else if (!Number.isFinite(DEMO_MS) && l.dep - nowMs() < 90 * 60000 && l.dep > nowMs() - 60 * 60000) el.innerHTML = `<span class="sub">אין עדיין מיקום חי לנסיעה הזו</span>`;
       }
     } catch { /* ignore */ }
   };
@@ -550,7 +555,7 @@ async function searchLines() {
   const res = await api("/api/lines", { q });
   if (!res.length) { box.innerHTML = `<div class="empty">לא נמצא קו ${esc(q)} באזור ירושלים.</div>`; return; }
   const render = () => {
-    box.innerHTML = res.map((r, i) => `<div class="variant" data-i="${i}">${badge(r)}<div><b>לכיוון ${esc(r.headsign || r.long.split("<->")[1] || "")}</b><div class="sub">${esc(r.agency)} · ${esc(r.long.replace(/-\d+#$/, "").replace("<->", " ← "))}</div></div></div>`).join("");
+    box.innerHTML = res.map((r, i) => `<div class="variant" data-i="${i}" data-gtfs="${esc(r.gtfs_id)}">${badge(r)}<div><b>לכיוון ${esc(r.headsign || r.long.split("<->")[1] || "")}</b><div class="sub">${esc(r.agency)} · ${esc(r.long.replace(/-\d+#$/, "").replace("<->", " ← "))}</div></div></div>`).join("");
     box.onclick = async (e) => {
       const v = e.target.closest(".variant");
       if (!v) return;
@@ -567,7 +572,8 @@ $("#line-q").addEventListener("keydown", (e) => { if (e.key === "Enter") searchL
 
 // ---------------------------------------------------------------- התחלה
 api("/api/meta").then((m) => {
-  $("#feed").textContent = `לוחות זמנים של משרד התחבורה · עודכנו ${m.feed_date}`;
+  $("#feed").textContent = `לוחות זמנים של משרד התחבורה · עודכנו ${m.feed_date}`
+    + (Number.isFinite(DEMO_MS) ? ` · מצב תצוגה: ${fmtW.format(DEMO_MS)} ${hhmm(DEMO_MS)}` : "");
   const ageDays = (Date.now() - Date.parse(m.feed_date)) / 864e5;
   const left = (Date.parse(m.service_end) - Date.now()) / 864e5;
   if (left < 3 || ageDays > 21) {
@@ -578,4 +584,24 @@ api("/api/meta").then((m) => {
     n.hidden = false;
   }
 }).catch(() => {});
-setTimeout(() => $("#to").focus(), 300);
+// קישורים ישירים: ?to=31.79,35.24,שם  |  ?tab=near  |  ?line=18&route=<gtfs route id>
+(function deepLinks() {
+  const q = new URLSearchParams(location.search);
+  if (q.get("to")) {
+    const [lat, lon, ...name] = q.get("to").split(",");
+    setPlace("to", { name: name.join(",") || "יעד", lat: +lat, lon: +lon, kind: "link" });
+  } else if (q.get("tab") === "near") {
+    showTab("near");
+  } else if (q.get("line")) {
+    showTab("lines");
+    $("#line-q").value = q.get("line");
+    searchLines().then(() => {
+      const want = q.get("route");
+      const items = [...document.querySelectorAll("#line-results .variant")];
+      const el = (want && items.find((v) => v.dataset.gtfs === want)) || items[0];
+      if (el) el.click();
+    });
+  } else {
+    setTimeout(() => $("#to").focus(), 300);
+  }
+})();
